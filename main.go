@@ -20,13 +20,13 @@ func main() {
 		fmt.Println("Example: go run main.go 3000 8080 /ip4/127.0.0.1/tcp/3001/p2p/QmPeerId")
 		os.Exit(1)
 	}
-	
+
 	// 从命令行解析P2P端口
 	p2pPort, err := strconv.Atoi(os.Args[1])
 	if err != nil {
 		log.Fatal("Invalid P2P port:", err)
 	}
-	
+
 	// 从命令行解析API端口（默认为8080）
 	apiPort := 8080
 	if len(os.Args) >= 3 {
@@ -35,7 +35,7 @@ func main() {
 			log.Fatal("Invalid API port:", err)
 		}
 	}
-	
+
 	// 解析引导节点（可选）
 	var bootstrapPeers []string
 	if len(os.Args) >= 4 {
@@ -71,8 +71,8 @@ func main() {
 		fmt.Printf("Node address: %s/p2p/%s\n", addr.String(), node.Host.ID().String())
 	}
 
-	// 4️⃣ 启动挖矿协程
-	go mineRoutine(bc, node)
+	// 4️⃣ 启动挖矿协程，使用固定地址作为矿工地址，奖励设为10
+	go mineRoutine(bc, node, "miner_address", 10)
 
 	// 阻塞主线程
 	select {}
@@ -81,28 +81,30 @@ func main() {
 // mineRoutine 挖矿例程，持续挖掘新区块
 // bc: 区块链实例
 // node: P2P节点实例
-func mineRoutine(bc *blockchain.Blockchain, node *p2p.Node) {
+// minerAddress: 矿工地址
+// reward: 挖矿奖励
+func mineRoutine(bc *blockchain.Blockchain, node *p2p.Node, minerAddress string, reward int) {
 	for {
-		// 尝试挖取包含内存池交易的新区块
-		newBlock, err := bc.MinePending()
+		// 尝试挖取包含内存池交易的新区块，并给予矿工奖励
+		newBlock, err := bc.MinePending(minerAddress, reward)
 		if err != nil {
 			// 如果没有交易可挖，等待一段时间再试
 			continue
 		}
-		
+
 		// 验证并应用新区块
 		if err := bc.ValidateAndApplyBlock(newBlock); err != nil {
 			log.Printf("Failed to validate and apply block: %v", err)
 			continue
 		}
-		
+
 		// 通过P2P网络传播新区块
 		msg := &p2p.Message{
 			Type: p2p.MsgBlock,
 			Data: mustMarshal(newBlock),
 		}
 		node.Broadcast(msg)
-		
+
 		log.Printf("Mined new block: %s", newBlock.Hash)
 	}
 }

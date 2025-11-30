@@ -32,6 +32,44 @@ type UTXOTx struct {
 	Outputs []TxOutput `json:"outputs"` // 交易输出列表
 }
 
+// CoinbaseTx 创建一个Coinbase交易（挖矿奖励）
+// coinbaseData: 区块中包含的额外数据（如矿工信息）
+// to: 接收奖励的地址
+// amount: 奖励金额
+func CoinbaseTx(coinbaseData, to string, amount int) UTXOTx {
+	// Coinbase交易没有输入，使用特殊标记
+	inputs := []TxInput{
+		{
+			Txid:      "0", // 特殊标记表示coinbase交易
+			Vout:      -1,  // 特殊值
+			Signature: coinbaseData,
+			PubKey:    "coinbase", // 标记为coinbase
+		},
+	}
+
+	// 创建输出给矿工的奖励
+	outputs := []TxOutput{
+		{
+			Address: to,
+			Amount:  amount,
+		},
+	}
+
+	return UTXOTx{Inputs: inputs, Outputs: outputs}
+}
+
+// IsCoinbase 判断交易是否为Coinbase交易
+// tx: 待检查的交易
+func IsCoinbase(tx UTXOTx) bool {
+	// Coinbase交易特征：
+	// 1. 只有一个输入
+	// 2. 输入的Txid为"0"
+	// 3. 输入的Vout为-1
+	return len(tx.Inputs) == 1 &&
+		tx.Inputs[0].Txid == "0" &&
+		tx.Inputs[0].Vout == -1
+}
+
 // TxID 返回确定性的交易ID：sha256(json(rawtx))
 // 通过对交易内容进行哈希来生成唯一标识
 func TxID(raw UTXOTx) (string, error) {
@@ -39,7 +77,7 @@ func TxID(raw UTXOTx) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(b) // 计算SHA256哈希
+	sum := sha256.Sum256(b)                // 计算SHA256哈希
 	return hex.EncodeToString(sum[:]), nil // 返回十六进制编码的哈希值
 }
 
@@ -50,7 +88,7 @@ func ValidateTxStructure(raw UTXOTx) error {
 	if len(raw.Inputs) == 0 && len(raw.Outputs) == 0 {
 		return fmt.Errorf("tx has no inputs and no outputs")
 	}
-	
+
 	// 检查输出金额是否为负数
 	for _, out := range raw.Outputs {
 		if out.Amount < 0 {
@@ -69,35 +107,35 @@ func validateRawTx(txid string) error {
 	// 2. 验证交易结构
 	// 3. 检查所有输入UTXO是否存在
 	// 4. 验证签名
-	// 
+	//
 	// 目前，我们只返回nil表示交易有效
-	
+
 	// 实际实现应该如下所示：
 	/*
-	// 1. 通过txid从存储中检索交易
-	tx, err := getTransactionById(txid)
-	if err != nil {
-		return fmt.Errorf("transaction not found: %s", txid)
-	}
-	
-	// 2. 验证交易结构
-	if err := ValidateTxStructure(tx); err != nil {
-		return fmt.Errorf("invalid transaction structure: %v", err)
-	}
-	
-	// 3. 检查所有输入UTXO是否存在
-	for _, input := range tx.Inputs {
-		_, err := GetUTXO(input.Txid, input.Vout)
+		// 1. 通过txid从存储中检索交易
+		tx, err := getTransactionById(txid)
 		if err != nil {
-			return fmt.Errorf("input UTXO not found: %s:%d", input.Txid, input.Vout)
+			return fmt.Errorf("transaction not found: %s", txid)
 		}
-	}
-	
-	// 4. 验证签名
-	if err := verifyTransactionSignatures(tx); err != nil {
-		return fmt.Errorf("invalid signatures: %v", err)
-	}
+
+		// 2. 验证交易结构
+		if err := ValidateTxStructure(tx); err != nil {
+			return fmt.Errorf("invalid transaction structure: %v", err)
+		}
+
+		// 3. 检查所有输入UTXO是否存在
+		for _, input := range tx.Inputs {
+			_, err := GetUTXO(input.Txid, input.Vout)
+			if err != nil {
+				return fmt.Errorf("input UTXO not found: %s:%d", input.Txid, input.Vout)
+			}
+		}
+
+		// 4. 验证签名
+		if err := verifyTransactionSignatures(tx); err != nil {
+			return fmt.Errorf("invalid signatures: %v", err)
+		}
 	*/
-	
+
 	return nil
 }

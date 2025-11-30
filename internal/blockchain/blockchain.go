@@ -83,13 +83,25 @@ func (bc *Blockchain) ValidateAndApplyBlock(b Block) error {
 // - 收集内存池中的交易
 // - 运行工作量证明算法
 // - 返回挖取的区块（调用者应存储并调用ValidateAndApplyBlock提交UTXO变更）
-func (bc *Blockchain) MinePending() (Block, error) {
+func (bc *Blockchain) MinePending(minerAddress string, reward int) (Block, error) {
 	txids := ListMempool() // 获取当前内存池中的交易ID列表
-	if len(txids) == 0 {
+
+	// 创建coinbase交易作为矿工奖励
+	coinbaseTx := CoinbaseTx("Mining Reward", minerAddress, reward)
+	coinbaseTxId, err := TxID(coinbaseTx)
+	if err != nil {
+		return Block{}, errors.New("failed to generate coinbase transaction")
+	}
+
+	// 将coinbase交易ID添加到交易列表开头
+	allTxIds := append([]string{coinbaseTxId}, txids...)
+
+	if len(allTxIds) <= 1 { // 只有coinbase交易
 		return Block{}, errors.New("no txs to mine")
 	}
-	prev := bc.GetLatest() // 获取前一个区块
-	b := MineBlock(prev, txids, bc.difficulty) // 挖取新区块
+
+	prev := bc.GetLatest()                        // 获取前一个区块
+	b := MineBlock(prev, allTxIds, bc.difficulty) // 挖取新区块
 	// 调用者：持久化b然后调用ValidateAndApplyBlock提交UTXO变更
 	return b, nil
 }
