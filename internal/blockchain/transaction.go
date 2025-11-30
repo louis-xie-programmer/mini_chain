@@ -71,5 +71,33 @@ func validateRawTx(txid string) error {
 	// 4. 验证签名
 	// 
 	// 目前，我们只返回nil表示交易有效
+	
+	// 实际实现应该如下所示：
+	/*
+	// 1. 通过txid从存储中检索交易
+	tx, err := getTransactionById(txid)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %s", txid)
+	}
+	
+	// 2. 验证交易结构
+	if err := ValidateTxStructure(tx); err != nil {
+		return fmt.Errorf("invalid transaction structure: %v", err)
+	}
+	
+	// 3. 检查所有输入UTXO是否存在
+	for _, input := range tx.Inputs {
+		_, err := GetUTXO(input.Txid, input.Vout)
+		if err != nil {
+			return fmt.Errorf("input UTXO not found: %s:%d", input.Txid, input.Vout)
+		}
+	}
+	
+	// 4. 验证签名
+	if err := verifyTransactionSignatures(tx); err != nil {
+		return fmt.Errorf("invalid signatures: %v", err)
+	}
+	*/
+	
 	return nil
 }

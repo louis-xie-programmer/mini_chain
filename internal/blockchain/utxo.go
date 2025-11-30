@@ -109,5 +109,31 @@ func applyTxsInBlock(txids []string) error {
 	//    b. 将所有输出UTXO添加到集合中
 	// 
 	// 目前，我们只返回nil表示成功
+	
+	// 实际实现应该如下所示：
+	/*
+	for _, txid := range txids {
+		// 获取交易详情
+		tx, err := getTransactionById(txid)
+		if err != nil {
+			return fmt.Errorf("failed to get transaction %s: %v", txid, err)
+		}
+		
+		// 删除被消费的UTXO（来自输入）
+		for _, input := range tx.Inputs {
+			DeleteUTXO(input.Txid, input.Vout)
+		}
+		
+		// 添加新的UTXO（来自输出）
+		for i, output := range tx.Outputs {
+			entry := UTXOEntry{
+				Address: output.Address,
+				Amount:  output.Amount,
+			}
+			PutUTXO(txid, i, entry)
+		}
+	}
+	*/
+	
 	return nil
 }
