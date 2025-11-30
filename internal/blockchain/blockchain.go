@@ -1,94 +1,95 @@
 package blockchain
 
 // internal/blockchain/blockchain.go
-// High level Blockchain object that uses the above pieces.
-// For the PoC this object manages in-memory latest height and basic
-// storage operations which will be later hooked into persistent DB.
+// 高层区块链对象，使用上述组件构建
+// 在这个概念验证实现中，该对象管理内存中的最新区块高度和基本存储操作，
+// 后续会接入持久化数据库
 
 import (
 	"errors"
 	"sync"
 )
 
+// Blockchain 区块链结构体，管理区块的验证、存储和同步
 type Blockchain struct {
-	lock       sync.RWMutex
-	difficulty int
-	// Note: block storage is expected to be handled by storage module.
-	// Here we keep a small cache of the latest block in memory for fast mining.
-	latest Block
+	lock       sync.RWMutex // 读写锁，保护区块链数据的并发访问
+	difficulty int          // 工作量证明难度（前导十六进制0的个数）
+	// 注意：区块存储预计由存储模块处理
+	// 这里我们在内存中缓存最新区块，以便快速挖矿
+	latest Block // 最新区块缓存
 }
 
-// NewBlockchain creates a blockchain instance and initializes with genesis.
-// difficulty: PoW difficulty (leading hex zeros)
+// NewBlockchain 创建区块链实例并用创世区块初始化
+// difficulty: PoW难度（前导十六进制0的个数）
 func NewBlockchain(difficulty int) *Blockchain {
-	gen := NewGenesis()
+	gen := NewGenesis() // 创建创世区块
 	bc := &Blockchain{
 		difficulty: difficulty,
-		latest:     gen,
+		latest:     gen, // 初始化最新区块为创世区块
 	}
-	// Note: storage persistence to be done by storage module (callers)
+	// 注意：存储持久化由存储模块处理（调用者负责）
 	return bc
 }
 
-// GetLatest returns the latest cached block.
+// GetLatest 返回缓存的最新区块
+// 使用读锁确保并发安全
 func (bc *Blockchain) GetLatest() Block {
 	bc.lock.RLock()
 	defer bc.lock.RUnlock()
 	return bc.latest
 }
 
-// SetLatest updates latest (call after successfully persisting a new block).
+// SetLatest 更新最新区块（在成功持久化新区块后调用）
 func (bc *Blockchain) SetLatest(b Block) {
 	bc.lock.Lock()
 	defer bc.lock.Unlock()
 	bc.latest = b
 }
 
-// ValidateAndApplyBlock performs validation (PoW + prev-hash) and
-// applies transactions to UTXO set (if valid). It expects the caller
-// to persist the block (DB) before or after calling depending on design.
+// ValidateAndApplyBlock 执行区块验证（PoW + 前一区块哈希链接）并应用交易到UTXO集合
+// 该函数期望调用者在调用前后根据设计持久化区块
 func (bc *Blockchain) ValidateAndApplyBlock(b Block) error {
-	// 1. basic header hash check
+	// 1. 基本头部哈希检查
 	if !b.ValidateBasic() {
 		return errors.New("block header invalid")
 	}
-	// 2. PoW
+	// 2. 工作量证明验证
 	if !CheckPoW(&b, bc.difficulty) {
 		return errors.New("block PoW invalid")
 	}
-	// 3. prev linkage
+	// 3. 前一区块链接验证
 	latest := bc.GetLatest()
 	if b.PrevHash != latest.Hash {
 		return errors.New("block does not extend latest")
 	}
-	// 4. validate contained txs (validateRawTx ensures inputs exist)
+	// 4. 验证包含的交易（validateRawTx确保输入存在）
 	for _, txid := range b.Transactions {
 		if err := validateRawTx(txid); err != nil {
 			return err
 		}
 	}
-	// 5. apply UTXO changes
+	// 5. 应用UTXO变更
 	if err := applyTxsInBlock(b.Transactions); err != nil {
 		return err
 	}
-	// 6. update latest
+	// 6. 更新最新区块
 	bc.SetLatest(b)
-	// 7. remove from mempool
+	// 7. 从内存池中移除已打包的交易
 	RemoveFromMempool(b.Transactions)
 	return nil
 }
 
-// Simple helper to mine a block given mempool txids:
-// - collects mempool
-// - runs PoW
-// - returns mined block (caller should store and call ValidateAndApplyBlock)
+// MinePending 挖取包含内存池交易的新区块的辅助函数:
+// - 收集内存池中的交易
+// - 运行工作量证明算法
+// - 返回挖取的区块（调用者应存储并调用ValidateAndApplyBlock提交UTXO变更）
 func (bc *Blockchain) MinePending() (Block, error) {
-	txids := ListMempool()
+	txids := ListMempool() // 获取当前内存池中的交易ID列表
 	if len(txids) == 0 {
 		return Block{}, errors.New("no txs to mine")
 	}
-	prev := bc.GetLatest()
-	b := MineBlock(prev, txids, bc.difficulty)
-	// Caller: persist b and then call ValidateAndApplyBlock to commit UTXO changes.
+	prev := bc.GetLatest() // 获取前一个区块
+	b := MineBlock(prev, txids, bc.difficulty) // 挖取新区块
+	// 调用者：持久化b然后调用ValidateAndApplyBlock提交UTXO变更
 	return b, nil
 }

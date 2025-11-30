@@ -14,20 +14,20 @@ import (
 )
 
 func main() {
-	// Check command line arguments
+	// 检查命令行参数
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <p2p_port> [api_port] [bootstrap_peers]")
 		fmt.Println("Example: go run main.go 3000 8080 /ip4/127.0.0.1/tcp/3001/p2p/QmPeerId")
 		os.Exit(1)
 	}
 	
-	// Parse P2P port from command line
+	// 从命令行解析P2P端口
 	p2pPort, err := strconv.Atoi(os.Args[1])
 	if err != nil {
 		log.Fatal("Invalid P2P port:", err)
 	}
 	
-	// Parse API port from command line (default to 8080 if not provided)
+	// 从命令行解析API端口（默认为8080）
 	apiPort := 8080
 	if len(os.Args) >= 3 {
 		apiPort, err = strconv.Atoi(os.Args[2])
@@ -36,23 +36,23 @@ func main() {
 		}
 	}
 	
-	// Parse bootstrap peers (optional)
+	// 解析引导节点（可选）
 	var bootstrapPeers []string
 	if len(os.Args) >= 4 {
 		bootstrapPeers = strings.Split(os.Args[3], ",")
 	}
 
 	ctx := context.Background()
-	// 1️⃣ 启动区块链
-	bc := blockchain.NewBlockchain(3) // 默认难度为3
+	// 1️⃣ 启动区块链，默认难度为3
+	bc := blockchain.NewBlockchain(3)
 
-	// 2️⃣ 启动 libp2p 节点
-	node, err := p2p.NewNode(ctx, p2pPort) // P2P端口通过命令行传值
+	// 2️⃣ 启动libp2p节点，P2P端口通过命令行传值
+	node, err := p2p.NewNode(ctx, p2pPort)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Connect to bootstrap peers if provided
+	// 连接到引导节点（如果提供了的话）
 	for _, addr := range bootstrapPeers {
 		if err := node.ConnectPeer(addr); err != nil {
 			log.Printf("Failed to connect to bootstrap peer %s: %v", addr, err)
@@ -61,9 +61,9 @@ func main() {
 		}
 	}
 
-	// 3️⃣ 启动 REST + WebSocket API
+	// 3️⃣ 启动REST + WebSocket API，API端口通过命令行传值
 	apiSrv := api.NewAPI(bc, node)
-	go apiSrv.Run(fmt.Sprintf(":%d", apiPort)) // API端口通过命令行传值
+	go apiSrv.Run(fmt.Sprintf(":%d", apiPort))
 
 	// 打印节点信息
 	fmt.Printf("Node ID: %s\n", node.Host.ID().String())
@@ -79,6 +79,8 @@ func main() {
 }
 
 // mineRoutine 挖矿例程，持续挖掘新区块
+// bc: 区块链实例
+// node: P2P节点实例
 func mineRoutine(bc *blockchain.Blockchain, node *p2p.Node) {
 	for {
 		// 尝试挖取包含内存池交易的新区块
@@ -105,9 +107,10 @@ func mineRoutine(bc *blockchain.Blockchain, node *p2p.Node) {
 	}
 }
 
+// mustMarshal 简化的序列化函数
+// 在实际实现中应该处理错误
+// v: 待序列化的对象
 func mustMarshal(v interface{}) []byte {
-	// 简化的序列化函数
-	// 在实际实现中应该处理错误
 	b, _ := json.Marshal(v)
 	return b
 }

@@ -1,7 +1,7 @@
 package blockchain
 
 // internal/blockchain/block.go
-// Block data structure and hash helpers.
+// 区块数据结构定义和哈希计算相关的辅助函数
 
 import (
 	"bytes"
@@ -13,20 +13,21 @@ import (
 	"time"
 )
 
-// Block represents a blockchain block.
-// Transactions are referenced by their txid strings to keep blocks compact.
+// Block 区块结构体，代表区块链中的一个区块
 type Block struct {
-	Index        int      `json:"index"`
-	Timestamp    int64    `json:"timestamp"`
-	Transactions []string `json:"transactions"` // txids
-	PrevHash     string   `json:"prev_hash"`
-	Nonce        int64    `json:"nonce"`
-	Hash         string   `json:"hash"`
+	Index        int      `json:"index"`        // 区块索引（高度）
+	Timestamp    int64    `json:"timestamp"`    // 区块生成时间戳
+	Transactions []string `json:"transactions"` // 包含的交易ID列表
+	PrevHash     string   `json:"prev_hash"`    // 前一个区块的哈希值
+	Nonce        int64    `json:"nonce"`        // 工作量证明的随机数
+	Hash         string   `json:"hash"`         // 当前区块的哈希值
 }
 
-// calcHash computes the SHA256 hex string of block header fields.
+// calcHash 计算区块头部字段的SHA256哈希值
+// 该函数用于生成区块的唯一标识，包含区块索引、时间戳、前一区块哈希、随机数和交易ID等信息
 func calcHash(b *Block) string {
 	var buf bytes.Buffer
+	// 按特定顺序拼接区块头部字段，确保哈希的一致性
 	buf.WriteString(strconv.Itoa(b.Index))
 	buf.WriteString("|")
 	buf.WriteString(strconv.FormatInt(b.Timestamp, 10))
@@ -35,32 +36,36 @@ func calcHash(b *Block) string {
 	buf.WriteString("|")
 	buf.WriteString(strconv.FormatInt(b.Nonce, 10))
 	buf.WriteString("|")
+	// 如果存在交易，则将交易ID用逗号连接
 	if len(b.Transactions) > 0 {
 		buf.WriteString(strings.Join(b.Transactions, ","))
 	}
+	// 计算SHA256哈希并返回十六进制字符串
 	sum := sha256.Sum256(buf.Bytes())
 	return fmt.Sprintf("%x", sum[:])
 }
 
-// NewGenesis returns a genesis block instance (deterministic).
+// NewGenesis 创建一个创世区块实例（确定性的）
+// 创世区块是区块链的第一个区块，具有固定的参数值
 func NewGenesis() Block {
 	g := Block{
-		Index:        0,
-		Timestamp:    time.Now().Unix(),
-		Transactions: []string{},
-		PrevHash:     "0",
-		Nonce:        0,
+		Index:        0,                     // 创世区块索引为0
+		Timestamp:    time.Now().Unix(),     // 当前时间戳
+		Transactions: []string{},            // 初始无交易
+		PrevHash:     "0",                   // 前一区块哈希为"0"
+		Nonce:        0,                     // 随机数初始为0
 	}
-	g.Hash = calcHash(&g)
+	g.Hash = calcHash(&g) // 计算并设置创世区块的哈希值
 	return g
 }
 
-// ValidateBasic checks header/hash consistency (no PoW check).
+// ValidateBasic 检查区块头部和哈希的一致性（不包括工作量证明检查）
+// 用于验证区块的基本完整性
 func (b *Block) ValidateBasic() bool {
 	return calcHash(b) == b.Hash
 }
 
-// Marshal pretty JSON for debugging
+// ToJSON 将区块转换为美化格式的JSON字符串，用于调试
 func (b *Block) ToJSON() string {
 	j, _ := json.MarshalIndent(b, "", "  ")
 	return string(j)
