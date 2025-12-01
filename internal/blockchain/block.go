@@ -8,8 +8,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -26,23 +26,34 @@ type Block struct {
 // calcHash 计算区块头部字段的SHA256哈希值
 // 该函数用于生成区块的唯一标识，包含区块索引、时间戳、前一区块哈希、随机数和交易ID等信息
 func calcHash(b *Block) string {
-	var buf bytes.Buffer
-	// 按特定顺序拼接区块头部字段，确保哈希的一致性
-	buf.WriteString(strconv.Itoa(b.Index))
-	buf.WriteString("|")
-	buf.WriteString(strconv.FormatInt(b.Timestamp, 10))
-	buf.WriteString("|")
-	buf.WriteString(b.PrevHash)
-	buf.WriteString("|")
-	buf.WriteString(strconv.FormatInt(b.Nonce, 10))
-	buf.WriteString("|")
-	// 如果存在交易，则将交易ID用逗号连接
-	if len(b.Transactions) > 0 {
-		buf.WriteString(strings.Join(b.Transactions, ","))
-	}
-	// 计算SHA256哈希并返回十六进制字符串
-	sum := sha256.Sum256(buf.Bytes())
-	return fmt.Sprintf("%x", sum[:])
+    var buf bytes.Buffer
+
+    // 1. 固定顺序写入基本字段（不含 Hash 自身）
+    buf.WriteString(strconv.Itoa(b.Index))
+    buf.WriteString("|")
+    buf.WriteString(strconv.FormatInt(b.Timestamp, 10))
+    buf.WriteString("|")
+    buf.WriteString(b.PrevHash)
+    buf.WriteString("|")
+    buf.WriteString(strconv.FormatInt(b.Nonce, 10))
+    buf.WriteString("|")
+
+    // 2. 为防止因交易顺序不同导致分叉，先排序
+    if len(b.Transactions) > 0 {
+        txCopy := make([]string, len(b.Transactions))
+        copy(txCopy, b.Transactions)
+        sort.Strings(txCopy) // 固定序
+
+        // 使用不可分割的分隔符，避免 "|" 与 "," 模糊边界
+        for _, tx := range txCopy {
+            buf.WriteString(tx)
+            buf.WriteString(";")  // 用分号做交易间隔
+        }
+    }
+
+    // 3. 计算 SHA-256
+    sum := sha256.Sum256(buf.Bytes())
+    return fmt.Sprintf("%x", sum[:])
 }
 
 // NewGenesis 创建一个创世区块实例（确定性的）
